@@ -1,19 +1,20 @@
-#include "stm32f10x.h"                  // Device header
-#include "Delay.h"
-#include "LED.h"
+//1.这是主函数
+
+#include "stm32f10x.h"									// Device header
+#include "Delay.h"										//头文件使用了延时函数
+#include "LED.h"       							        //申明 使用了下面两个新创建的库函数
 #include "KEY.h"
 
-uint16_t Keynumber;
-
+uint16_t Keynumber;										//创建一个全局变量，让它能够和后面通过按键获取的值产生联系
 int main(void)
 {
-    LED_Init();
+    LED_Init();											//初始化创建的函数，这样那个函数就会运行了
     KEY_Init();
     
 	while(1)
 
     {
-        Keynumber=KEY_GetNum();
+        Keynumber=KEY_GetNum();							//让全局变量来等于key所输出的值
         if(Keynumber==1)
         {
         LED1_Turn();
@@ -24,3 +25,98 @@ int main(void)
         }
     }
 }
+
+//2.这是创建的LED函数
+
+#include "stm32f10x.h"     									// Device header
+
+void LED_Init(void)											//作用为封装控制LED这个函数，初始化GPIOA
+	{
+		RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA,ENABLE);
+		GPIO_InitTypeDef GPIO_InitStruct;
+		GPIO_InitStruct.GPIO_Mode=GPIO_Mode_Out_PP;
+		GPIO_InitStruct.GPIO_Pin=GPIO_Pin_1  | GPIO_Pin_2;
+		GPIO_InitStruct.GPIO_Speed=GPIO_Speed_50MHz;
+		GPIO_Init(GPIOA,&GPIO_InitStruct);
+		GPIO_SetBits(GPIOA,GPIO_Pin_1  | GPIO_Pin_2);      //因为其默认为低电平，所以为了不让小灯亮即把其调为高电平。
+}
+void LED1_Turn(void)									   //电平翻转，即通过GPIO的库函数来读取此时单片机输出的电平来输出对应的值，高电平输出1，低电平则输出0.
+{
+		if(GPIO_ReadOutputDataBit(GPIOA,GPIO_Pin_1)==0)    //通过GPIO_ReadOutputDataBit这个函数来读取，如果是低电平则置高电平，反之亦然。
+		{
+		GPIO_SetBits(GPIOA,GPIO_Pin_1);
+		}
+		else
+		{
+		GPIO_ResetBits(GPIOA,GPIO_Pin_1);
+		}
+}
+void LED2_Turn(void)                                        //同上
+{
+		if(GPIO_ReadOutputDataBit(GPIOA,GPIO_Pin_2)==0)
+		{
+		GPIO_SetBits(GPIOA,GPIO_Pin_2);
+		}
+		else
+		{
+		GPIO_ResetBits(GPIOA,GPIO_Pin_2);
+		}
+}
+
+//3.这是LED的头文件，也是为了能够让main函数能够引用而创建。
+
+#ifndef __LED_H       										//头文件是通过#ifndef和#endif形成括号来涵盖了函数
+#define __LED_H
+
+void LED_Init(void);
+void LED1_Turn(void);
+void LED2_Turn(void);
+				
+#endif
+
+//4.这是KEY的主函数
+#include "stm32f10x.h"// Device header
+#include "Delay.h"												//因为在这个函数中使用到了delay函数，所以要引出来
+
+void KEY_Init(void)    											//初始化GPIOB
+{
+		RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB,ENABLE);
+		GPIO_InitTypeDef GPIO_InitStruct;
+		GPIO_InitStruct.GPIO_Mode= GPIO_Mode_IPU;
+		GPIO_InitStruct.GPIO_Pin=GPIO_Pin_1| GPIO_Pin_11;
+        GPIO_InitStruct.GPIO_Speed=GPIO_Speed_50MHz;
+		GPIO_Init(GPIOB,&GPIO_InitStruct);
+}
+
+uint8_t KEY_GetNum(void)										//创建按下按键得到的变量
+{
+		uint8_t KEYNum = 0; 									//局部变量
+		if (GPIO_ReadInputDataBit(GPIOB,GPIO_Pin_1)==0)			//通过GPIO_ReadInputDataBit这个函数来读取外部给单片机的电平高低
+		{
+			Delay_ms(20);										//按键会有抖动，所以要用delay函数来过滤
+			while(GPIO_ReadInputDataBit(GPIOB,GPIO_Pin_1)==0)	//while函数来保证在松开按键后程序才会继续进行
+				{
+				Delay_ms(20);
+				KEYNum = 1;										//如果按下则输出值为1
+				}
+		}	
+		if (GPIO_ReadInputDataBit(GPIOB,GPIO_Pin_11)==0)		//作用同上，如果按下这个健则输出2
+		{
+			Delay_ms(20);
+			while(GPIO_ReadInputDataBit(GPIOB,GPIO_Pin_11)==0)
+				{
+				Delay_ms(20);
+				KEYNum = 2;
+				}
+		}	
+		return KEYNum;
+}
+
+//5.这是key的头文件
+#ifndef __KEY_H
+#define __KEY_H
+
+void KEY_Init(void);
+uint8_t KEY_GetNum(void);
+
+#endif
